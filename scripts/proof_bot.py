@@ -16,6 +16,8 @@ from eth_utils import to_bytes, to_int
 
 EVENT_SIGNATURE = "0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036"
 EXIT_ALREADY_PROCESSED_ERROR = "EXIT_ALREADY_PROCESSED"
+EXIT_PAYLOAD_API = "exit-payload/"
+BLOCK_CHECK_API = "block-included/"
 
 
 def hex_to_bytes(data: str) -> bytes:
@@ -94,8 +96,7 @@ def get_and_push_proof(
     fx_base_channel_root_tunnel: ContractInstance,
     messages: list[dict],
     event_signature: str,
-    proof_generator: str,
-    block_check_api: str
+    proof_generator: str
 ) -> int:
     """
     Iterates over all new messages, checks proof for each of them
@@ -106,14 +107,14 @@ def get_and_push_proof(
     for event in messages:
         s = requests.session()
         block_number = event["blockNumber"]
-        response = s.get(urljoin(block_check_api, block_number))
-        if response.json()["error"]:
+        response = s.get(urljoin(urljoin(proof_generator, BLOCK_CHECK_API), block_number))
+        if response.json().get("error", False):
             logger.warning("Transaction is not checkpointed")
             return processed
 
         txhash = event["transactionHash"]
         response = s.get(
-            urljoin(proof_generator, txhash), params={"eventSignature": event_signature}
+            urljoin(urljoin(proof_generator, EXIT_PAYLOAD_API), txhash), params={"eventSignature": event_signature}
         )
 
         if response.status_code != 200:
@@ -153,15 +154,7 @@ def get_and_push_proof(
     required=True,
     type=click.STRING,
 )
-@click.option(
-    "--block-check-api",
-    "-bca",
-    help="Block check URI",
-    default=None,
-    required=True,
-    type=click.STRING,
-)
-def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator, block_check_api):
+def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator):
     """Provides proof from Polygon network to Ethereum"""
 
     account.set_autosign(enabled=True)
@@ -177,6 +170,6 @@ def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator, block_check_
         return
 
     processed = get_and_push_proof(
-        account, receiver, messages, EVENT_SIGNATURE, proof_generator, block_check_api
+        account, receiver, messages, EVENT_SIGNATURE, proof_generator
     )
     logger.info("Processed %d transactions", processed)
