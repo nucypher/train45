@@ -57,6 +57,7 @@ def get_message_sent_events(graphql_endpoint: str, last_blocknumber: int) -> lis
     messageSents(where: {blockNumber_gte: """
         + str(last_blocknumber)
         + """}, orderBy: blockNumber) {
+        blockNumber
         transactionHash
     }
     }
@@ -94,6 +95,7 @@ def get_and_push_proof(
     messages: list[dict],
     event_signature: str,
     proof_generator: str,
+    block_check_api: str
 ) -> int:
     """
     Iterates over all new messages, checks proof for each of them
@@ -102,14 +104,21 @@ def get_and_push_proof(
 
     processed = 0
     for event in messages:
-        txhash = event["transactionHash"]
         s = requests.session()
+        block_number = event["blockNumber"]
+        response = s.get(urljoin(block_check_api, block_number))
+        if response.json()["error"]:
+            logger.warning("Transaction is not checkpointed")
+            return processed
+
+        txhash = event["transactionHash"]
         response = s.get(
             urljoin(proof_generator, txhash), params={"eventSignature": event_signature}
         )
+
         if response.status_code != 200:
-            logger.warning("Transaction is not checkpointed")
-            return processed
+            logger.warning("Skipping transaction " + txhash)
+            continue
 
         proof = response.json()["result"]
         if push_proof(account, fx_base_channel_root_tunnel, proof):
@@ -144,7 +153,15 @@ def get_and_push_proof(
     required=True,
     type=click.STRING,
 )
-def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator):
+@click.option(
+    "--block-check-api",
+    "-bca",
+    help="Block check URI",
+    default=None,
+    required=True,
+    type=click.STRING,
+)
+def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator, block_check_api):
     """Provides proof from Polygon network to Ethereum"""
 
     account.set_autosign(enabled=True)
@@ -160,6 +177,6 @@ def cli(account, fx_root_tunnel, graphql_endpoint, proof_generator):
         return
 
     processed = get_and_push_proof(
-        account, receiver, messages, EVENT_SIGNATURE, proof_generator
+        account, receiver, messages, EVENT_SIGNATURE, proof_generator, block_check_api
     )
     logger.info("Processed %d transactions", processed)
