@@ -32,7 +32,7 @@ def get_release_events(graphql_endpoint: str) -> list[dict]:
 
     response = s.post(graphql_endpoint, json={"query": gql})
     if response.status_code != 200:
-        raise Exception("GraphQL endpoint not reachable [Error {response.status_code} - {response.text}]")
+        raise Exception(f"GraphQL endpoint not reachable [Error {response.status_code} - {response.text}]")
 
     data = response.json()
     messages = data["data"]["releaseds"]
