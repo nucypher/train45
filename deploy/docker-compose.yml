@@ -12,7 +12,7 @@ services:
   train45:
     depends_on:
       - proofgen
-    image: nucypher/train45:dev
+    image: nucypher/train45:latest
     container_name: train45
     platform: linux/amd64
     restart: always
@@ -57,4 +57,4 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: train45
+    command: train45 --interval 86400 --cleanup
