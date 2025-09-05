@@ -1,8 +1,17 @@
 version: '3'
 
 services:
+  proofgen:
+    image: nucypher/polygon-proof-generation:latest
+    container_name: proofgen
+    platform: linux/amd64
+    restart: always
+    env_file:
+      - .proof.gen.env
 
   train45:
+    depends_on:
+      - proofgen
     image: nucypher/train45:dev
     container_name: train45
     platform: linux/amd64
