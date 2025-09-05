@@ -118,7 +118,7 @@ def get_and_push_proof(
         )
 
         if response.status_code != 200:
-            logger.warning("Skipping transaction " + txhash)
+            logger.warning(f"[Error {response.status_code} - {response.text}]: Skipping transaction {txhash}")
             continue
 
         proof = response.json()["result"]
