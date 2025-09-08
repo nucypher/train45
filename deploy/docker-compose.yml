@@ -1,9 +1,18 @@
 version: '3'
 
 services:
+  proofgen:
+    image: nucypher/polygon-proof-generation:latest
+    container_name: proofgen
+    platform: linux/amd64
+    restart: always
+    env_file:
+      - .proof.gen.env
 
   train45:
-    image: nucypher/train45:dev
+    depends_on:
+      - proofgen
+    image: nucypher/train45:latest
     container_name: train45
     platform: linux/amd64
     restart: always
@@ -48,4 +57,4 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: train45
+    command: train45 --interval 86400 --cleanup
