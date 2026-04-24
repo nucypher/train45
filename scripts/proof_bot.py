@@ -56,9 +56,9 @@ def get_message_sent_events(graphql_endpoint: str, last_blocknumber: int) -> lis
     gql = (
         """
     query AllMessagesSent {
-    messageSents(where: {blockNumber_gte: """
+    bridgeMessages(where: {blockNumber_gte: """
         + str(last_blocknumber)
-        + """}, orderBy: blockNumber) {
+        + """, domain: "mainnet"}, orderBy: blockNumber) {
         blockNumber
         transactionHash
     }
@@ -72,7 +72,7 @@ def get_message_sent_events(graphql_endpoint: str, last_blocknumber: int) -> lis
     response = s.post(graphql_endpoint, json={"query": gql})
 
     data = response.json()
-    messages = data["data"]["messageSents"]
+    messages = data["data"]["bridgeMessages"]
     return messages
 
 

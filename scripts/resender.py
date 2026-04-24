@@ -11,21 +11,28 @@ from ape.logging import logger
 
 def get_release_events(graphql_endpoint: str) -> list[dict]:
     """
-    Queries GraphQL endpoint to retrieve all new `Release` events
-    on Polygon network
+    Queries GraphQL endpoint to retrieve stakers with a `CHILD_RELEASED`
+    event that has no subsequent `CHILD_RELEASE_RESENT`.
     """
 
-    gql = (
-        """
+    gql = """
     query ReleasetoResend {
-    releaseds(
-        where: {releaseTxSender: "0x0000000000000000000000000000000000000000", releaseResent: false}
+        released: authorizationEvents(
+            where: {eventType: CHILD_RELEASED}
+            first: 1000
         ) {
-            id
+            stakingProvider { id }
+            blockNumber
+        }
+        resent: authorizationEvents(
+            where: {eventType: CHILD_RELEASE_RESENT}
+            first: 1000
+        ) {
+            stakingProvider { id }
+            blockNumber
         }
     }
     """
-    )
 
     s = requests.session()
     s.headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -34,9 +41,28 @@ def get_release_events(graphql_endpoint: str) -> list[dict]:
     if response.status_code != 200:
         raise Exception(f"GraphQL endpoint not reachable [Error {response.status_code} - {response.text}]")
 
-    data = response.json()
-    messages = data["data"]["releaseds"]
-    return messages
+    data = response.json()["data"]
+
+    latest_resent: dict[str, int] = {}
+    for event in data["resent"]:
+        staker = event["stakingProvider"]["id"]
+        block = int(event["blockNumber"])
+        if block > latest_resent.get(staker, -1):
+            latest_resent[staker] = block
+
+    latest_released: dict[str, int] = {}
+    for event in data["released"]:
+        staker = event["stakingProvider"]["id"]
+        block = int(event["blockNumber"])
+        if block > latest_released.get(staker, -1):
+            latest_released[staker] = block
+
+    pending = [
+        {"id": staker}
+        for staker, released_block in latest_released.items()
+        if released_block > latest_resent.get(staker, -1)
+    ]
+    return pending
 
 
 def resend_tx(
