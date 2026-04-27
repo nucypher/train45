@@ -86,7 +86,9 @@ def push_proof(
         return True
     except ContractLogicError as e:
         if e.message != EXIT_ALREADY_PROCESSED_ERROR:
-            raise e
+            logger.warning(f"{proof} failed with error: {e}")
+            # raise e
+
         logger.info("Transaction already processed")
         return False
 
@@ -121,6 +123,7 @@ def get_and_push_proof(
             logger.warning(f"[Error {response.status_code} - {response.text}]: Skipping transaction {txhash}")
             continue
 
+        logger.info(f"Processing proof for {txhash}")
         proof = response.json()["result"]
         if push_proof(account, fx_base_channel_root_tunnel, proof):
             processed += 1
